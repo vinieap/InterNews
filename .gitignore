@@ -1,0 +1,8 @@
+#JSON Files
+*.json
+
+#HTML Files
+*.html
+
+#TXT Files
+*.txt
