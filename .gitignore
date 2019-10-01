@@ -4,5 +4,5 @@
 #HTML Files
 *.html
 
-#TXT Files
-*.txt
+#API Key File
+creds.txt
