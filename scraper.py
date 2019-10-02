@@ -3,6 +3,7 @@ import gmplot
 import folium
 import json
 import os
+import pandas as pd
 from bs4 import BeautifulSoup
 from geotext import GeoText
 from collections import OrderedDict
@@ -18,7 +19,7 @@ def loadMap(x, y):
     with open("creds.txt", "r") as f:
         creds = f.readline()
     gmap = gmplot.GoogleMapPlotter(
-        0, 0, 0, apikey=creds) #Google Maps API Key
+        0, 0, 0, apikey=creds)  # Google Maps API Key
     gmap.heatmap(x, y)
     gmap.draw("map.html")
 
@@ -56,33 +57,42 @@ def main():
         cities.append(cleanCities)
 
     geolocator = Nominatim(user_agent="CityFinder")
-    latlongAllArticles = []
-    latlongCurrentArticle = []
 
     lat = []
     long = []
+    id = []
+    counter = 1
 
     for citiesList in cities:
         for city in citiesList:
             try:
                 lat.append(geolocator.geocode(city, timeout=10).latitude)
                 long.append(geolocator.geocode(city, timeout=10).longitude)
-            except GeocoderTimedOut as g:
+                id.append(counter)
+            except:
                 print("Error: Geocode failed on input %s" % city)
+        counter = counter + 1
 
-    with open("lats.json", "w") as f:
-        json.dump(lat, f)
-    with open("longs.json", "w") as f:
-        json.dump(long, f)
+    # with open("lats.json", "w") as f:
+    #     json.dump(lat, f)
+    # with open("longs.json", "w") as f:
+    #     json.dump(long, f)
+
+    df = pd.DataFrame(data={"lats": lat, "longs": long, "id": id})
+    df.to_csv("data.csv", index=False)
 
     loadMap(lat, long)
 
 
-if os.path.exists('lats.json') or os.path.exists('longs.json'):
-    with open("lats.json", "r") as f:
-        lats = json.load(f)
-    with open("longs.json", "r") as f:
-        longs = json.load(f)
-    loadMap(lats, longs)
+# if os.path.exists('lats.json') or os.path.exists('longs.json'):
+#     with open("lats.json", "r") as f:
+#         lats = json.load(f)
+#     with open("longs.json", "r") as f:
+#         longs = json.load(f)
+
+if os.path.exists('data.csv'):
+    colnames = ["lats", "longs", "id"]
+    df = pd.read_csv("data.csv", names=colnames)
+    loadMap(df.lats.tolist(), df.longs.tolist())
 else:
     main()

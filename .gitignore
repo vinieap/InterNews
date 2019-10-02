@@ -1,8 +1,8 @@
-#JSON Files
-*.json
-
 #HTML Files
 *.html
 
 #API Key File
 creds.txt
+
+#Coordinate Data
+*.csv
