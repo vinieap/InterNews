@@ -3,6 +3,7 @@ import gmplot
 import folium
 import json
 import os
+import sys
 import pandas as pd
 from bs4 import BeautifulSoup
 from geotext import GeoText
@@ -15,19 +16,37 @@ def delDupes(x):
     return list(OrderedDict.fromkeys(x))
 
 
-def loadMap(x, y):
+def loadMap(x, y, z, i):
     with open("creds.txt", "r") as f:
         creds = f.readline()
     gmap = gmplot.GoogleMapPlotter(
-        0, 0, 0, apikey=creds)  # Google Maps API Key
-    gmap.heatmap(x, y)
+        0, 0, 3, apikey=creds)  # Google Maps API Key
+    # gmap.heatmap(x, y)
+
+    gmap.scatter(x, y, i, '#FF0000', size=30000)
+
+    # Connect Markers via Article Ids
+    # lats = []
+    # longs = []
+    # change = z[0]
+    # for counter in range(len(z)):
+    #     if z[counter] == change:
+    #         lats.append(x[counter])
+    #         longs.append(y[counter])
+    #     else:
+    #         change = z[counter]
+    #         gmap.plot(lats, longs, 'blue', edge_width=1.0)
+    #         lats.clear()
+    #         longs.clear()
+
     gmap.draw("map.html")
 
 
-def main():
+def getData():
     page = requests.get("https://apnews.com/apf-intlnews")
     soup = BeautifulSoup(page.content, 'html.parser')
     articles = soup.find_all("div", {"class", "FeedCard c0117 c0118"})
+
     articleLinks = []
 
     for link in articles:
@@ -35,10 +54,11 @@ def main():
         articleLinks.append('https://www.apnews.com' + url.get('href'))
 
     articleBodies = []
+    articleTitles = []
 
     for link in articleLinks:
-        articleText = []
         articleBody = []
+        articleText = []
         page = requests.get(link)
         soup = BeautifulSoup(page.content, 'html.parser')
         for paragraph in soup.find_all('p'):
@@ -47,6 +67,11 @@ def main():
                 articleBody.append(articleText)
         text = ''.join(articleBody)
         articleBodies.append(text)
+        try:
+            articleTitles.append(soup.find('h1').text)
+        except:
+            articleTitles.append(
+                soup.find('div', attrs={'class', 'c0121'}).text)
 
     cities = []
 
@@ -61,6 +86,7 @@ def main():
     lat = []
     long = []
     id = []
+    articleTitle = []
     counter = 1
 
     for citiesList in cities:
@@ -69,30 +95,30 @@ def main():
                 lat.append(geolocator.geocode(city, timeout=10).latitude)
                 long.append(geolocator.geocode(city, timeout=10).longitude)
                 id.append(counter)
+                articleTitle.append(articleTitles[counter-1])
             except:
                 print("Error: Geocode failed on input %s" % city)
         counter = counter + 1
 
-    # with open("lats.json", "w") as f:
-    #     json.dump(lat, f)
-    # with open("longs.json", "w") as f:
-    #     json.dump(long, f)
-
-    df = pd.DataFrame(data={"lats": lat, "longs": long, "id": id})
+    df = pd.DataFrame(data={"titles": articleTitle,
+                            "lats": lat, "longs": long, "id": id})
     df.to_csv("data.csv", index=False)
 
-    loadMap(lat, long)
+    loadMap(lat, long, id, articleTitle)
 
 
-# if os.path.exists('lats.json') or os.path.exists('longs.json'):
-#     with open("lats.json", "r") as f:
-#         lats = json.load(f)
-#     with open("longs.json", "r") as f:
-#         longs = json.load(f)
+param = "past"
 
-if os.path.exists('data.csv'):
+if len(sys.argv) > 1:
+    param = sys.argv[1]
+
+
+if os.path.exists('data.csv') and param != "current":
     colnames = ["lats", "longs", "id"]
-    df = pd.read_csv("data.csv", names=colnames)
-    loadMap(df.lats.tolist(), df.longs.tolist())
+    df = pd.read_csv("data.csv", names=colnames, skiprows=1)
+    loadMap(list(map(float, df.lats.tolist())), list(
+        map(float, df.longs.tolist())), list(map(int, df.id.tolist())), list(map(str, df.titles.tolist())))
 else:
-    main()
+    if os.path.exists('data.csv'):
+        os.remove('data.csv')
+    getData()
